@@ -15,10 +15,17 @@ class UserStateSerializer
     private $path;
 
     /**
-     * @param string $path
+     * @var string
      */
-    public function __construct($path)
+    private $workshopName;
+
+    /**
+     * @param string $path
+     * @param string $workshopName
+     */
+    public function __construct($path, $workshopName)
     {
+        $this->workshopName = $workshopName;
         $this->path = $path;
 
         if (file_exists($path)) {
@@ -37,10 +44,21 @@ class UserStateSerializer
      */
     public function serialize(UserState $state)
     {
-        return file_put_contents($this->path, json_encode([
-            'completed_exercises'   => $state->getCompletedExercises(),
-            'current_exercise'      => $state->getCurrentExercise(),
-        ]));
+        if (!file_exists($this->path)) {
+            $data = [];
+            $data[$this->workshopName] = [
+                'completed_exercises'   => $state->getCompletedExercises(),
+                'current_exercise'      => $state->getCurrentExercise(),
+            ];
+        } else {
+            $data = $this->readJson($this->path);
+            $data[$this->workshopName] = [
+                'completed_exercises'   => $state->getCompletedExercises(),
+                'current_exercise'      => $state->getCurrentExercise(),
+            ];
+        }
+
+        return file_put_contents($this->path, json_encode($data));
     }
 
     /**
@@ -48,49 +66,44 @@ class UserStateSerializer
      */
     public function deSerialize()
     {
-        if (!file_exists($this->path)) {
-            return new UserState();
-        }
-
-        $data = file_get_contents($this->path);
-
-        if (trim($data) === "") {
+        $json = $this->readJson($this->path);
+        if (null === $json) {
             $this->wipeFile();
             return new UserState();
         }
 
-        $json = @json_decode($data, true);
-
-        if (null === $json && JSON_ERROR_NONE !== json_last_error()) {
-            $this->wipeFile();
+        //if completed_exercises is set
+        //then this is the legacy format
+        if (isset($json['completed_exercises'])) {
+            rename($this->path, sprintf('%s.bck', $this->path));
             return new UserState();
         }
 
+        if (!isset($json[$this->workshopName])) {
+            return new UserState();
+        }
+
+        $json = $json[$this->workshopName];
         if (!array_key_exists('completed_exercises', $json)) {
-            $this->wipeFile();
+            return new UserState();
+        }
+
+        if (!array_key_exists('current_exercise', $json)) {
             return new UserState();
         }
 
         if (!is_array($json['completed_exercises'])) {
-            $this->wipeFile();
-            return new UserState();
+            $json['completed_exercises'] = [];
         }
 
-        foreach ($json['completed_exercises'] as $exercise) {
+        foreach ($json['completed_exercises'] as $i => $exercise) {
             if (!is_string($exercise)) {
-                $this->wipeFile();
-                return new UserState();
+                unset($json['completed_exercises'][$i]);
             }
         }
 
-        if (!array_key_exists('current_exercise', $json)) {
-            $this->wipeFile();
-            return new UserState();
-        }
-
         if (null !== $json['current_exercise'] && !is_string($json['current_exercise'])) {
-            $this->wipeFile();
-            return new UserState();
+            $json['current_exercise'] = null;
         }
 
         return new UserState(
@@ -100,10 +113,35 @@ class UserStateSerializer
     }
 
     /**
+     * @param string $filePath
+     * @return array|null
+     */
+    private function readJson($filePath)
+    {
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        $data = file_get_contents($filePath);
+
+        if (trim($data) === "") {
+            return null;
+        }
+
+        $data = @json_decode($data, true);
+
+        if (null === $data && JSON_ERROR_NONE !== json_last_error()) {
+            return null;
+        }
+
+        return $data;
+    }
+
+    /**
      * Remove the file
      */
     private function wipeFile()
     {
-        unlink($this->path);
+        @unlink($this->path);
     }
 }
