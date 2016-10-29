@@ -43,9 +43,9 @@ class FailureRenderer implements ResultRendererInterface
                 $renderer->style("ERRORS/WARNINGS", ['yellow', 'bold', 'underline']),
                 $this->indent($renderer->style(sprintf('%s', $this->result->getErrors()), 'red'))
             );
-        } else {
-            return '  ' . $this->result->getReason() . "\n";
         }
+
+        return '  ' . $this->result->getReason() . "\n";
     }
 
     /**
