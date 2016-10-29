@@ -37,7 +37,7 @@ class CgiRunnerTest extends PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $this->exercise = $this->getMock(CgiExerciseInterface::class);
+        $this->exercise = $this->createMock(CgiExerciseInterface::class);
         $this->runner = new CgiRunner($this->exercise, new EventDispatcher(new ResultAggregator));
 
         $this->exercise
@@ -67,7 +67,8 @@ class CgiRunnerTest extends PHPUnit_Framework_TestCase
 
         $regex  =
             "/^PHP Code failed to execute\\. Error: \\nPHP Parse error:  syntax error, unexpected end of file in/";
-        $this->setExpectedExceptionRegExp(SolutionExecutionException::class, $regex);
+        $this->expectException(SolutionExecutionException::class);
+        $this->expectExceptionMessageRegExp($regex);
         $this->runner->verify('');
     }
 
@@ -167,9 +168,7 @@ class CgiRunnerTest extends PHPUnit_Framework_TestCase
 
         $result = iterator_to_array($failure)[0];
         $this->assertInstanceOf(Failure::class, $result);
-
-        $failureMsg  = "/^PHP Code failed to execute. Error: \\nPHP Parse error:  syntax error, unexpected end of file";
-        $failureMsg .= " in/";
+        $failureMsg  = "/^PHP Code failed to execute\\. Error: \\nPHP Parse error:  syntax error, unexpected end of file in/";
         $this->assertRegExp($failureMsg, $result->getReason());
     }
 
@@ -248,7 +247,7 @@ class CgiRunnerTest extends PHPUnit_Framework_TestCase
     {
         $color = new Color;
         $color->setForceStyle(true);
-        $output = new StdOutput($color, $this->getMock(TerminalInterface::class));
+        $output = new StdOutput($color, $this->createMock(TerminalInterface::class));
         $request1 = (new Request)
             ->withMethod('GET')
             ->withUri(new Uri('http://some.site?number=5'));
@@ -293,7 +292,7 @@ class CgiRunnerTest extends PHPUnit_Framework_TestCase
     {
         $color = new Color;
         $color->setForceStyle(true);
-        $output = new StdOutput($color, $this->getMock(TerminalInterface::class));
+        $output = new StdOutput($color, $this->createMock(TerminalInterface::class));
         $request1 = (new Request)
             ->withMethod('GET')
             ->withUri(new Uri('http://some.site?number=5'));

@@ -5,7 +5,6 @@ namespace PhpSchool\PhpWorkshop\Output;
 use Colors\Color;
 use PhpSchool\CliMenu\Terminal\TerminalInterface;
 use Psr\Http\Message\RequestInterface;
-use Zend\Diactoros\Request;
 
 /**
  * Class StdOutput
@@ -48,6 +47,9 @@ class StdOutput implements OutputInterface
     }
 
     /**
+     * Write a title section. Should be decorated in a way which makes
+     * the title stand out.
+     *
      * @param string $title
      */
     public function writeTitle($title)
@@ -56,6 +58,8 @@ class StdOutput implements OutputInterface
     }
 
     /**
+     * Write a string to the output.
+     *
      * @param string $content
      */
     public function write($content)
@@ -64,6 +68,8 @@ class StdOutput implements OutputInterface
     }
 
     /**
+     * Write an array of strings, each on a new line.
+     *
      * @param array $lines
      */
     public function writeLines(array $lines)
@@ -74,6 +80,8 @@ class StdOutput implements OutputInterface
     }
 
     /**
+     * Write a string terminated with a newline.
+     *
      * @param string $line
      */
     public function writeLine($line)
@@ -82,7 +90,7 @@ class StdOutput implements OutputInterface
     }
 
     /**
-     * Write empty line
+     * Write an empty line.
      */
     public function emptyLine()
     {
@@ -90,6 +98,8 @@ class StdOutput implements OutputInterface
     }
 
     /**
+     * Write a line break.
+     *
      * @return string
      */
     public function lineBreak()
@@ -98,6 +108,8 @@ class StdOutput implements OutputInterface
     }
 
     /**
+     * Write a PSR-7 request.
+     *
      * @param RequestInterface $request
      */
     public function writeRequest(RequestInterface $request)

@@ -12,7 +12,10 @@ use PhpSchool\PhpWorkshop\Exercise\SubmissionPatchable;
 use PhpSchool\PhpWorkshop\Exercise\SubmissionPatcher;
 
 /**
- * Class CodePatcher
+ * Service to apply patches to a student's solution. Accepts a default patch via the constructor.
+ * Patches are pulled from the exercise (if it implements `SubmissionPatchable`) and applied to the
+ * given code.
+ *
  * @package PhpSchool\PhpWorkshop
  * @author Aydin Hassan <aydin@hotmail.co.uk>
  */
@@ -34,6 +37,13 @@ class CodePatcher
     private $defaultPatch;
 
     /**
+     * This service requires an instance of `Parser` and `Standard`. These services allow
+     * to parse code to an AST and to print code from an AST.
+     *
+     * The service also accepts a default patch. This allows a workshop to apply a patch
+     * to every single student solution. This is used (by default) to modify various ini
+     * settings, such as increasing the error reporting level.
+     *
      * @param Parser $parser
      * @param Standard $printer
      * @param Patch $defaultPatch
@@ -46,6 +56,13 @@ class CodePatcher
     }
     
     /**
+     * Accepts an exercise and a string containing the students solution to the exercise.
+     *
+     * If there is a default patch, the students solution is patched with that.
+     *
+     * If the exercise implements `SubmissionPatchable` then the patch is pulled from it and applied to
+     * the students solution.
+     *
      * @param ExerciseInterface $exercise
      * @param string $code
      * @return string
@@ -71,30 +88,46 @@ class CodePatcher
     private function applyPatch(Patch $patch, $code)
     {
         $statements = $this->parser->parse($code);
-        foreach ($patch->getInsertions() as $insertion) {
-            try {
-                $codeToInsert = $insertion->getCode();
-                $codeToInsert = sprintf('<?php %s', preg_replace('/^\s*<\?php/', '', $codeToInsert));
-                $additionalStatements = $this->parser->parse($codeToInsert);
-            } catch (Error $e) {
-                //we should probably log this and have a dev mode or something
+        foreach ($patch->getModifiers() as $modifier) {
+            if ($modifier instanceof CodeInsertion) {
+                $statements = $this->applyCodeInsertion($modifier, $statements);
                 continue;
             }
 
-            switch ($insertion->getType()) {
-                case CodeInsertion::TYPE_BEFORE:
-                    array_unshift($statements, ...$additionalStatements);
-                    break;
-                case CodeInsertion::TYPE_AFTER:
-                    array_push($statements, ...$additionalStatements);
-                    break;
+            if (is_callable($modifier)) {
+                $statements = $modifier($statements);
+                continue;
             }
         }
 
-        foreach ($patch->getTransformers() as $transformer) {
-            $statements = $transformer($statements);
+        return $this->printer->prettyPrintFile($statements);
+    }
+
+    /**
+     * @param CodeInsertion $codeInsertion
+     * @param array $statements
+     * @return array
+     */
+    private function applyCodeInsertion(CodeInsertion $codeInsertion, array $statements)
+    {
+        try {
+            $codeToInsert = $codeInsertion->getCode();
+            $codeToInsert = sprintf('<?php %s', preg_replace('/^\s*<\?php/', '', $codeToInsert));
+            $additionalStatements = $this->parser->parse($codeToInsert);
+        } catch (Error $e) {
+            //we should probably log this and have a dev mode or something
+            return $statements;
         }
 
-        return $this->printer->prettyPrintFile($statements);
+        switch ($codeInsertion->getType()) {
+            case CodeInsertion::TYPE_BEFORE:
+                array_unshift($statements, ...$additionalStatements);
+                break;
+            case CodeInsertion::TYPE_AFTER:
+                array_push($statements, ...$additionalStatements);
+                break;
+        }
+
+        return $statements;
     }
 }

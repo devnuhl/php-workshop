@@ -2,12 +2,12 @@
 
 namespace PhpSchool\PhpWorkshop\Event;
 
-use Assert\Assertion;
 use PhpSchool\PhpWorkshop\Result\ResultInterface;
 use PhpSchool\PhpWorkshop\ResultAggregator;
 
 /**
- * Class EventDispatcher
+ * An event dispatcher implementation.
+ *
  * @package PhpSchool\PhpWorkshop\EventManager
  * @author  Aydin Hassan <aydin@hotmail.co.uk>
  */
@@ -17,11 +17,6 @@ class EventDispatcher
      * @var array
      */
     private $listeners = [];
-
-    /**
-     * @var array
-     */
-    private $verifiers = [];
 
     /**
      * @var ResultAggregator
@@ -37,6 +32,8 @@ class EventDispatcher
     }
 
     /**
+     * Dispatch an event. Can be any event object which implements `PhpSchool\PhpWorkshop\Event\EventInterface`.
+     *
      * @param EventInterface $event
      * @return EventInterface
      */
@@ -48,24 +45,14 @@ class EventDispatcher
             }
         }
 
-        if (array_key_exists($event->getName(), $this->verifiers)) {
-            foreach ($this->verifiers[$event->getName()] as $verifier) {
-                $result = $verifier($event);
-
-                //return type hints pls
-                if ($result instanceof ResultInterface) {
-                    $this->resultAggregator->add($result);
-                } else {
-                    //??!!
-                }
-            }
-        }
-
         return $event;
     }
 
     /**
-     * @param string $eventNames
+     * Attach a callback to an event name. `$eventNames` can be an array of event names in order to attach the same
+     * callback to multiple events or it can just be one event name as a string.
+     *
+     * @param string|array $eventNames
      * @param callable $callback
      */
     public function listen($eventNames, callable $callback)
@@ -93,15 +80,24 @@ class EventDispatcher
     }
 
     /**
-     * @param string $eventName
-     * @param callable $callback
+     * Insert a verifier callback which will execute at the given event name much like normal listeners.
+     * A verifier should return an object which implements `PhpSchool\PhpWorkshop\Result\FailureInterface`
+     * or `PhpSchool\PhpWorkshop\Result\SuccessInterface`. This result object will be added to the result aggregator.
+     *
+     * @param string|array $eventName
+     * @param callable $verifier
      */
-    public function insertVerifier($eventName, callable $callback)
+    public function insertVerifier($eventName, callable $verifier)
     {
-        if (!array_key_exists($eventName, $this->verifiers)) {
-            $this->verifiers[$eventName] = [$callback];
-        } else {
-            $this->verifiers[$eventName][] = $callback;
-        }
+        $this->attachListener($eventName, function (EventInterface $event) use ($verifier) {
+            $result = $verifier($event);
+
+            //return type hints pls
+            if ($result instanceof ResultInterface) {
+                $this->resultAggregator->add($result);
+            } else {
+                //??!!
+            }
+        });
     }
 }

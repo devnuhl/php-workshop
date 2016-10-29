@@ -5,7 +5,9 @@ namespace PhpSchool\PhpWorkshop\Result;
 use Psr\Http\Message\RequestInterface;
 
 /**
- * Class CgiOutRequestFailure
+ * A failure result representing the situation where the output of a student's solution did not match the
+ * expected output in the context of a HTTP request.
+ *
  * @package PhpSchool\PhpWorkshop\Result
  * @author  Aydin Hassan <aydin@hotmail.co.uk>
  */
@@ -66,6 +68,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Get the request object associated with this failure.
+     *
      * @return RequestInterface
      */
     public function getRequest()
@@ -74,6 +78,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Is the output different?
+     *
      * @return bool
      */
     public function bodyDifferent()
@@ -82,6 +88,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Are the headers different?
+     *
      * @return bool
      */
     public function headersDifferent()
@@ -90,6 +98,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Are the headers & body different?
+     *
      * @return bool
      */
     public function headersAndBodyDifferent()
@@ -98,6 +108,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Get the expected output.
+     *
      * @return string
      */
     public function getExpectedOutput()
@@ -106,6 +118,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Get the actual output.
+     *
      * @return string
      */
     public function getActualOutput()
@@ -114,6 +128,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Get the array of expected headers.
+     *
      * @return array
      */
     public function getExpectedHeaders()
@@ -122,6 +138,8 @@ class CgiOutRequestFailure implements FailureInterface
     }
 
     /**
+     * Get the array of actual headers.
+     *
      * @return array
      */
     public function getActualHeaders()

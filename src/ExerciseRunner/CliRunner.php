@@ -19,7 +19,13 @@ use PhpSchool\PhpWorkshop\Utils\ArrayObject;
 use Symfony\Component\Process\Process;
 
 /**
- * Class CliRunner
+ * The `CLI` runner. This runner executes solutions as PHP CLI scripts, passing the arguments
+ * from the exercise as command line arguments to the solution. The solution will be invoked like:
+ *
+ * ```bash
+ * php my-solution.php arg1 arg2 arg3
+ * ```
+ *
  * @author Aydin Hassan <aydin@hotmail.co.uk>
  */
 class CliRunner implements ExerciseRunnerInterface
@@ -35,8 +41,10 @@ class CliRunner implements ExerciseRunnerInterface
     private $eventDispatcher;
 
     /**
-     * @param CliExercise $exercise
-     * @param EventDispatcher $eventDispatcher
+     * Requires the exercise instance and an event dispatcher.
+     *
+     * @param CliExercise $exercise The exercise to be invoked.
+     * @param EventDispatcher $eventDispatcher The event dispatcher.
      */
     public function __construct(CliExercise $exercise, EventDispatcher $eventDispatcher)
     {
@@ -70,14 +78,14 @@ class CliRunner implements ExerciseRunnerInterface
             throw CodeExecutionException::fromProcess($process);
         }
         return (
-        $type == 'user' ?
+        $type == 'student' ?
             [$process->getOutput(), $process->getErrorOutput()]
             : $process->getOutput()
         );
     }
 
     /**
-     * @param string      $fileName
+     * @param string $fileName
      * @param ArrayObject $args
      *
      * @return Process
@@ -89,8 +97,20 @@ class CliRunner implements ExerciseRunnerInterface
     }
 
     /**
-     * @param string $fileName
-     * @return ResultInterface
+     * Verifies a solution by invoking PHP from the CLI passing the arguments gathered from the exercise
+     * as command line arguments to PHP.
+     *
+     * Events dispatched:
+     *
+     * * cli.verify.reference-execute.pre
+     * * cli.verify.reference.executing
+     * * cli.verify.reference-execute.fail (if the reference solution fails to execute)
+     * * cli.verify.student-execute.pre
+     * * cli.verify.student.executing
+     * * cli.verify.student-execute.fail (if the student's solution fails to execute)
+     *
+     * @param string $fileName The absolute path to the student's solution.
+     * @return ResultInterface The result of the check.
      */
     public function verify($fileName)
     {
@@ -98,22 +118,22 @@ class CliRunner implements ExerciseRunnerInterface
         $args = new ArrayObject($this->exercise->getArgs());
 
         try {
-            $event = $this->eventDispatcher->dispatch(new CliExecuteEvent('cli.verify.solution-execute.pre', $args));
+            $event = $this->eventDispatcher->dispatch(new CliExecuteEvent('cli.verify.reference-execute.pre', $args));
             $solutionOutput = $this->executePhpFile(
                 $this->exercise->getSolution()->getEntryPoint(),
                 $event->getArgs(),
-                'solution'
+                'reference'
             );
         } catch (CodeExecutionException $e) {
-            $this->eventDispatcher->dispatch(new Event('cli.verify.solution-execute.fail', ['exception' => $e]));
+            $this->eventDispatcher->dispatch(new Event('cli.verify.reference-execute.fail', ['exception' => $e]));
             throw new SolutionExecutionException($e->getMessage());
         }
 
         try {
-            $event = $this->eventDispatcher->dispatch(new CliExecuteEvent('cli.verify.user-execute.pre', $args));
-            list($userOutput, $userWarnings) = $this->executePhpFile($fileName, $event->getArgs(), 'user');
+            $event = $this->eventDispatcher->dispatch(new CliExecuteEvent('cli.verify.student-execute.pre', $args));
+            list($userOutput, $userWarnings) = $this->executePhpFile($fileName, $event->getArgs(), 'student');
         } catch (CodeExecutionException $e) {
-            $this->eventDispatcher->dispatch(new Event('cli.verify.user-execute.fail', ['exception' => $e]));
+            $this->eventDispatcher->dispatch(new Event('cli.verify.student-execute.fail', ['exception' => $e]));
             return Failure::fromNameAndCodeExecutionFailure(
                 $this->getName(),
                 $e,
@@ -122,32 +142,34 @@ class CliRunner implements ExerciseRunnerInterface
                 $e->getErrors()
             );
         }
-        if ($solutionOutput === $userOutput || !empty($userWarnings)) {
-            if (!empty($userWarnings)) {
-                return StdOutFailure::fromNameAndWarnings(
-                    $this->getName(),
-                    $solutionOutput,
-                    $userOutput,
-                    $userWarnings
-                );
-            } else {
-                return new Success($this->getName());
-            }
+        if ($solutionOutput === $userOutput && empty($userWarnings)) {
+            return new Success($this->getName());
         }
 
-        return StdOutFailure::fromNameAndOutput($this->getName(), $solutionOutput, $userOutput);
+        return StdOutFailure::fromNameAndOutput($this->getName(), $solutionOutput, $userOutput, $userWarnings);
     }
 
     /**
-     * @param string $fileName
-     * @param OutputInterface $output
-     * @return bool
+     * Runs a student's solution by invoking PHP from the CLI passing the arguments gathered from the exercise
+     * as command line arguments to PHP.
+     *
+     * Running only runs the student's solution, the reference solution is not run and no verification is performed,
+     * the output of the student's solution is written directly to the output.
+     *
+     * Events dispatched:
+     *
+     *  * cli.run.student-execute.pre
+     *  * cli.run.student.executing
+     *
+     * @param string $fileName The absolute path to the student's solution.
+     * @param OutputInterface $output A wrapper around STDOUT.
+     * @return bool If the solution was successfully executed, eg. exit code was 0.
      */
     public function run($fileName, OutputInterface $output)
     {
         /** @var CliExecuteEvent $event */
         $event = $this->eventDispatcher->dispatch(
-            new CliExecuteEvent('cli.run.user-execute.pre', new ArrayObject($this->exercise->getArgs()))
+            new CliExecuteEvent('cli.run.student-execute.pre', new ArrayObject($this->exercise->getArgs()))
         );
 
         $args = $event->getArgs();
@@ -163,7 +185,9 @@ class CliRunner implements ExerciseRunnerInterface
         $output->writeTitle("Output");
         $process = $this->getPhpProcess($fileName, $args);
         $process->start();
-        $this->eventDispatcher->dispatch(new CliExecuteEvent('cli.run.executing', $args, ['output' => $output]));
+        $this->eventDispatcher->dispatch(
+            new CliExecuteEvent('cli.run.student.executing', $args, ['output' => $output])
+        );
         $process->wait(function ($outputType, $outputBuffer) use ($output) {
             $output->writeLine($outputBuffer);
         });

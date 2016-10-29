@@ -17,11 +17,14 @@ use PhpSchool\PhpWorkshop\Result\ResultInterface;
 use PhpSchool\PhpWorkshop\Result\Success;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 use Symfony\Component\Process\Process;
 use Zend\Diactoros\Response\Serializer as ResponseSerializer;
 
 /**
- * Class CgiRunner
+ * The `CGI` runner. This runner executes solutions as if they were behind a web-server. They populate the `$_SERVER`,
+ * `$_GET` & `$_POST` super globals with information based of the request objects returned from the exercise.
+ *
  * @author Aydin Hassan <aydin@hotmail.co.uk>
  */
 class CgiRunner implements ExerciseRunnerInterface
@@ -38,8 +41,13 @@ class CgiRunner implements ExerciseRunnerInterface
     private $eventDispatcher;
 
     /**
-     * @param CgiExercise $exercise
-     * @param EventDispatcher $eventDispatcher
+     * Requires the exercise instance and an event dispatcher. This runner requires the `php-cgi` binary to
+     * be available. It will check for it's existence in the system's $PATH variable or the same
+     * folder that the CLI php binary lives in.
+     *
+     * @param CgiExercise $exercise The exercise to be invoked.
+     * @param EventDispatcher $eventDispatcher The event dispatcher.
+     * @throws RuntimeException If the `php-cgi` binary cannot be found.
      */
     public function __construct(CgiExercise $exercise, EventDispatcher $eventDispatcher)
     {
@@ -85,22 +93,24 @@ class CgiRunner implements ExerciseRunnerInterface
     private function checkRequest(RequestInterface $request, $fileName)
     {
         try {
-            $event = $this->eventDispatcher->dispatch(new CgiExecuteEvent('cgi.verify.solution-execute.pre', $request));
+            $event = $this->eventDispatcher->dispatch(
+                new CgiExecuteEvent('cgi.verify.reference-execute.pre', $request)
+            );
             $solutionResponse = $this->executePhpFile(
                 $this->exercise->getSolution()->getEntryPoint(),
                 $event->getRequest(),
-                'solution'
+                'reference'
             );
         } catch (CodeExecutionException $e) {
-            $this->eventDispatcher->dispatch(new Event('cgi.verify.solution-execute.fail', ['exception' => $e]));
+            $this->eventDispatcher->dispatch(new Event('cgi.verify.reference-execute.fail', ['exception' => $e]));
             throw new SolutionExecutionException($e->getMessage());
         }
 
         try {
-            $event = $this->eventDispatcher->dispatch(new CgiExecuteEvent('cgi.verify.user-execute.pre', $request));
-            list($userResponse, $userWarnings) = $this->executePhpFile($fileName, $event->getRequest(), 'user');
+            $event = $this->eventDispatcher->dispatch(new CgiExecuteEvent('cgi.verify.student-execute.pre', $request));
+            list($userResponse, $userWarnings) = $this->executePhpFile($fileName, $event->getRequest(), 'student');
         } catch (CodeExecutionException $e) {
-            $this->eventDispatcher->dispatch(new Event('cgi.verify.user-execute.fail', ['exception' => $e]));
+            $this->eventDispatcher->dispatch(new Event('cgi.verify.student-execute.fail', ['exception' => $e]));
             return Failure::fromNameAndCodeExecutionFailure($this->getName(), $e);
         }
         
@@ -161,7 +171,7 @@ class CgiRunner implements ExerciseRunnerInterface
         }
 
         return (
-        $type == 'user' ?
+        $type == 'student' ?
             [ResponseSerializer::fromString($output), $process->getErrorOutput()]
             : ResponseSerializer::fromString($output)
         );
@@ -201,8 +211,21 @@ class CgiRunner implements ExerciseRunnerInterface
     }
 
     /**
-     * @param string $fileName
-     * @return ResultInterface
+     * Verifies a solution by invoking PHP via the `php-cgi` binary, populating all the super globals with
+     * the information from the request objects returned from the exercise. The exercise can return multiple
+     * requests so the solution will be invoked for however many requests there are.
+     *
+     * Events dispatched (for each request):
+     *
+     * * cgi.verify.reference-execute.pre
+     * * cgi.verify.reference.executing
+     * * cgi.verify.reference-execute.fail (if the reference solution fails to execute)
+     * * cgi.verify.student-execute.pre
+     * * cgi.verify.student.executing
+     * * cgi.verify.student-execute.fail (if the student's solution fails to execute)
+     *
+     * @param string $fileName The absolute path to the student's solution.
+     * @return ResultInterface The result of the check.
      */
     public function verify($fileName)
     {
@@ -218,16 +241,30 @@ class CgiRunner implements ExerciseRunnerInterface
     }
 
     /**
-     * @param string $fileName
-     * @param OutputInterface $output
-     * @return bool
+     * Runs a student's solution by invoking PHP via the `php-cgi` binary, populating all the super globals with
+     * the information from the request objects returned from the exercise. The exercise can return multiple
+     * requests so the solution will be invoked for however many requests there are.
+     *
+     * Running only runs the student's solution, the reference solution is not run and no verification is performed,
+     * the output of the student's solution is written directly to the output.
+     *
+     * Events dispatched (for each request):
+     *
+     * * cgi.run.student-execute.pre
+     * * cgi.run.student.executing
+     *
+     * @param string $fileName The absolute path to the student's solution.
+     * @param OutputInterface $output A wrapper around STDOUT.
+     * @return bool If the solution was successfully executed, eg. exit code was 0.
      */
     public function run($fileName, OutputInterface $output)
     {
         $success = true;
         foreach ($this->exercise->getRequests() as $i => $request) {
-            $event      = $this->eventDispatcher->dispatch(new CgiExecuteEvent('cgi.run.user-execute.pre', $request));
-            $process    = $this->getProcess($fileName, $event->getRequest());
+            $event = $this->eventDispatcher->dispatch(
+                new CgiExecuteEvent('cgi.run.student-execute.pre', $request)
+            );
+            $process = $this->getProcess($fileName, $event->getRequest());
 
             $output->writeTitle("Request");
             $output->emptyLine();
@@ -236,7 +273,9 @@ class CgiRunner implements ExerciseRunnerInterface
             $output->writeTitle("Output");
             $output->emptyLine();
             $process->start();
-            $this->eventDispatcher->dispatch(new CgiExecuteEvent('cgi.run.executing', $request, ['output' => $output]));
+            $this->eventDispatcher->dispatch(
+                new CgiExecuteEvent('cgi.run.student.executing', $request, ['output' => $output])
+            );
             $process->wait(function ($outputType, $outputBuffer) use ($output) {
                 $output->write($outputBuffer);
             });

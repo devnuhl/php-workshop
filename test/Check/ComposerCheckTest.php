@@ -40,13 +40,12 @@ class ComposerCheckTest extends PHPUnit_Framework_TestCase
 
         $this->assertTrue($this->check->canRun(ExerciseType::CGI()));
         $this->assertTrue($this->check->canRun(ExerciseType::CLI()));
-
     }
     
     public function testExceptionIsThrownIfNotValidExercise()
     {
-        $exercise = $this->getMock(ExerciseInterface::class);
-        $this->setExpectedException(InvalidArgumentException::class);
+        $exercise = $this->createMock(ExerciseInterface::class);
+        $this->expectException(InvalidArgumentException::class);
 
         $this->check->check($exercise, '');
     }
@@ -77,7 +76,7 @@ class ComposerCheckTest extends PHPUnit_Framework_TestCase
      */
     public function testCheckReturnsFailureIfDependencyNotRequired($dependency, $solutionFile)
     {
-        $exercise = $this->getMock(ComposerExercise::class);
+        $exercise = $this->createMock(ComposerExercise::class);
         $exercise->expects($this->once())
             ->method('getRequiredPackages')
             ->will($this->returnValue([$dependency]));
