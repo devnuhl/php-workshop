@@ -17,7 +17,8 @@ class CodeExecutionException extends RuntimeException
     /**
      * @var string
      */
-    private $actual;
+    private $output;
+
     /**
      * @var string
      */
@@ -26,13 +27,13 @@ class CodeExecutionException extends RuntimeException
     /**
      * CodeExecutionException constructor.
      * @param string $reason
-     * @param string $actual
+     * @param string $output
      * @param string $errors
      */
-    public function __construct($reason, $actual = null, $errors = null)
+    public function __construct($reason, $output = null, $errors = null)
     {
         $this->message  = $reason;
-        $this->actual   = $actual;
+        $this->output   = $output;
         $this->errors   = $errors;
     }
 
@@ -57,7 +58,7 @@ class CodeExecutionException extends RuntimeException
      */
     public function getActual()
     {
-        return $this->actual;
+        return $this->output;
     }
 
     /**
