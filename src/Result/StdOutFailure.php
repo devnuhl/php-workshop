@@ -37,6 +37,7 @@ class StdOutFailure implements FailureInterface
      * @param string $name The name of the check that produced this result.
      * @param string $expectedOutput The expected output.
      * @param string $actualOutput The actual output.
+     * @param string|null $warnings
      */
     public function __construct($name, $expectedOutput, $actualOutput, $warnings = null)
     {
@@ -61,9 +62,9 @@ class StdOutFailure implements FailureInterface
 
     /**
      * @param string $name
-     * @param $expectedOutput
-     * @param $actualOutput
-     * @param $warnings
+     * @param string $expectedOutput
+     * @param string $actualOutput
+     * @param string $warnings
      * @return static
      */
     public static function fromNameAndWarnings($name, $expectedOutput, $actualOutput, $warnings)

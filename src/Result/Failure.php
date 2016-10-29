@@ -88,18 +88,14 @@ class Failure implements FailureInterface
      * @param string $name The name of the check that produced this result.
      * @param CodeExecutionException $e The exception.
      * @param string|null $expectedOutput
-     * @param string|null $actualOutput
-     * @param string|null $errors
      * @return static The result.
      */
     public static function fromNameAndCodeExecutionFailure(
         $name,
         CodeExecutionException $e,
-        $expectedOutput = null,
-        $actualOutput = null,
-        $errors = null
+        $expectedOutput = null
     ) {
-        return new static($name, $e->getMessage(), $expectedOutput, $actualOutput, $errors);
+        return new static($name, $e->getMessage(), $expectedOutput, $e->getActual(), $e->getErrors());
     }
 
     /**
