@@ -77,11 +77,8 @@ class CliRunner implements ExerciseRunnerInterface
         if (!$process->isSuccessful()) {
             throw CodeExecutionException::fromProcess($process);
         }
-        return (
-        $type == 'student' ?
-            [$process->getOutput(), $process->getErrorOutput()]
-            : $process->getOutput()
-        );
+
+        return [$process->getOutput(), $process->getErrorOutput()];
     }
 
     /**
@@ -119,7 +116,7 @@ class CliRunner implements ExerciseRunnerInterface
 
         try {
             $event = $this->eventDispatcher->dispatch(new CliExecuteEvent('cli.verify.reference-execute.pre', $args));
-            $solutionOutput = $this->executePhpFile(
+            list($solutionOutput, ) = $this->executePhpFile(
                 $this->exercise->getSolution()->getEntryPoint(),
                 $event->getArgs(),
                 'reference'

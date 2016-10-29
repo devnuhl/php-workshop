@@ -96,7 +96,7 @@ class CgiRunner implements ExerciseRunnerInterface
             $event = $this->eventDispatcher->dispatch(
                 new CgiExecuteEvent('cgi.verify.reference-execute.pre', $request)
             );
-            $solutionResponse = $this->executePhpFile(
+            list($solutionResponse, ) = $this->executePhpFile(
                 $this->exercise->getSolution()->getEntryPoint(),
                 $event->getRequest(),
                 'reference'
@@ -150,7 +150,7 @@ class CgiRunner implements ExerciseRunnerInterface
      * @param string $fileName
      * @param RequestInterface $request
      * @param string $type
-     * @return ResponseInterface
+     * @return array [ResponseInterface, errors]
      */
     private function executePhpFile($fileName, RequestInterface $request, $type)
     {
@@ -166,15 +166,13 @@ class CgiRunner implements ExerciseRunnerInterface
 
         //if no status line, pre-pend 200 OK
         $output = $process->getOutput();
+        $errors = $process->getErrorOutput();
+
         if (!preg_match('/^HTTP\/([1-9]\d*\.\d) ([1-5]\d{2})(\s+(.+))?\\r\\n/', $output)) {
             $output = "HTTP/1.0 200 OK\r\n" . $output;
         }
 
-        return (
-        $type == 'student' ?
-            [ResponseSerializer::fromString($output), $process->getErrorOutput()]
-            : ResponseSerializer::fromString($output)
-        );
+        return [ResponseSerializer::fromString($output), $errors];
     }
 
     /**
