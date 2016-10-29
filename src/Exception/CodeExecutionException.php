@@ -52,11 +52,17 @@ class CodeExecutionException extends RuntimeException
         );
     }
 
+    /**
+     * @return null|string
+     */
     public function getActual()
     {
         return $this->actual;
     }
 
+    /**
+     * @return null|string
+     */
     public function getErrors()
     {
         return $this->errors;
